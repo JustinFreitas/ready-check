@@ -70,8 +70,8 @@ function createButtons(){
     btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
   }
 
-  const sidebarBtn = $(`<a class="crash-ready-check-sidebar" title="` + btnTitle + `"><i class="fas fa-hourglass-half"></i></a>`);
-  const popoutBtn = $(`<a class="crash-ready-check-popout" title="` + btnTitle + `"><i class="fas fa-hourglass-half"></i></a>`);
+  const sidebarBtn = $(`<a class="crash-ready-check-sidebar" title="${btnTitle}"><i class="fas fa-hourglass-half"></i></a>`);
+  const popoutBtn = $(`<a class="crash-ready-check-popout" title="${btnTitle}"><i class="fas fa-hourglass-half"></i></a>`);
   let sidebarDiv = $("#sidebar").find(".chat-control-icon");
   let popoutDiv = $("#chat-popout").find(".chat-control-icon");
   let btnAlreadyInSidebar = $("#sidebar").find(".crash-ready-check-sidebar").length > 0;
@@ -134,6 +134,7 @@ async function initReadyCheck(){
   if(game.user.isGM){
     let data = {action: 'check'};
     await setAllToNotReady();
+    ui.players.render(true);
     game.socket.emit('module.ready-check', data);
     displayReadyCheckDialog();
     playReadyCheckAlert();
@@ -198,7 +199,7 @@ async function processReadyResponse(data){
   if(game.user.isGM){
     let userToUpdate = game.users.get(data.userId);
     await userToUpdate.setFlag('ready-check', 'isReady', data.ready);
-    ui.players.render();
+    ui.players.render(true);
   }
 }
 
@@ -238,7 +239,7 @@ async function updatePlayersWindow(){
     let ready = await game.users.contents[i].getFlag('ready-check','isReady');
     let userId = game.users.contents[i]._id;
     let userName = game.users.contents[i].name;
-    let indicator = $("#players").find("[data-user-id="+userId+"] .crash-ready-indicator").length > 0;
+    let indicator = $("#players").find(`[data-user-id="${userId}"] .crash-ready-indicator`);
     let title, classToAdd, classToRemove, iconClassToAdd, iconClassToRemove;
 
     if(ready){
@@ -255,13 +256,13 @@ async function updatePlayersWindow(){
       iconClassToRemove = "fa-check";
     }
 
-    if(indicator){
-      $(indicator).removeClass(classToRemove);
+    if(indicator && indicator.length > 0){
       $(indicator).removeClass(iconClassToRemove);
+      $(indicator).removeClass(classToRemove);
       $(indicator).addClass(classToAdd);
       $(indicator).addClass(iconClassToAdd);
     } else {
-      $("#players").find("[data-user-id="+userId+"]").append(`<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}"></i>`);
+      $("#players").find(`[data-user-id="${userId}"]`).append(`<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}"></i>`);
     }
   }
 }
