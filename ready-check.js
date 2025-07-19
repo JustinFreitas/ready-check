@@ -39,18 +39,18 @@ Hooks.once("init", function(){
 
 // Reset Status When the Game is Ready
 Hooks.once("ready", async function(){
+  await createSocketHandler();
   await setAllToNotReady();
+  await updatePlayersWindow();
 });
 
-// Set Up Buttons and Socket Stuff
-Hooks.on('renderChatLog', async function(){
-  createButtons();
-  createSocketHandler();
+Hooks.on('renderSidebar', async function() {
+    await createButtons();
 });
 
 // Update the display of the Player UI.
-Hooks.on('renderPlayerList', async function(){
-  await updatePlayersWindow();
+Hooks.on('renderPlayers', async function(){
+    await updatePlayersWindow();
 })
 
 // SET ALL USERS STATUS TO NOT READY (GM)
@@ -63,42 +63,29 @@ async function setAllToNotReady(){
 }
 
 // CREATE THE UI BUTTON FOR THE GM AND PLAYERS
-function createButtons(){
+async function createButtons(){
   let btnTitle = game.i18n.localize("READYCHECK.UiChangeButton");
 
   if(game.user.role === 4){ //if GM
     btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
   }
 
-  const sidebarBtn = $(`<a class="crash-ready-check-sidebar" title="` + btnTitle + `"><i class="fas fa-hourglass-half"></i></a>`);
-  const popoutBtn = $(`<a class="crash-ready-check-popout" title="` + btnTitle + `"><i class="fas fa-hourglass-half"></i></a>`);
-  let sidebarDiv = $("#sidebar").find(".chat-control-icon");
-  let popoutDiv = $("#chat-popout").find(".chat-control-icon");
-  let btnAlreadyInSidebar = $("#sidebar").find(".crash-ready-check-sidebar").length > 0;
-  let btnAlreadyInPopout = $("#chat-popout").find(".crash-ready-check-popout").length > 0;
+  const sidebarBtn = $('<button type="button" class="crash-ready-check-sidebar ui-control icon fa-solid fa-hourglass-half" data-tooltip="" aria-label="Ready Check"></button>');
+  let sidebarDiv = $("#roll-privacy");
+  let btnAlreadyInSidebar = $("#roll-privacy").find(".crash-ready-check-sidebar").length > 0;
 
   if(!btnAlreadyInSidebar) {
-    sidebarDiv.before(sidebarBtn);
+    sidebarDiv.prepend(sidebarBtn);
     jQuery(".crash-ready-check-sidebar").click(async (event) => {
       event.preventDefault();
       if(game.user.role === 4){ displayGmDialog(); }
       else { displayStatusUpdateDialog(); }
     });
   }
-
-  if(!btnAlreadyInPopout) {
-    popoutDiv.before(popoutBtn);
-    jQuery(".crash-ready-check-popout").click(async (event) => {
-      event.preventDefault();
-      if(game.user.role === 4){ displayGmDialog(); }
-      else { displayStatusUpdateDialog(); }
-    });
-  }
-
 }
 
 // CREATE THE SOCKET HANDLER
-function createSocketHandler(){
+async function createSocketHandler(){
   game.socket.on('module.ready-check', async (data) =>{
     if(data.action === 'check'){
       displayReadyCheckDialog();
@@ -198,7 +185,8 @@ async function processReadyResponse(data){
   if(game.user.isGM){
     let userToUpdate = game.users.get(data.userId);
     await userToUpdate.setFlag('ready-check', 'isReady', data.ready);
-    ui.players.render();
+    await updatePlayersWindow();
+    ui.players.render(true);
   }
 }
 
@@ -238,8 +226,11 @@ async function updatePlayersWindow(){
     let ready = await game.users.contents[i].getFlag('ready-check','isReady');
     let userId = game.users.contents[i]._id;
     let userName = game.users.contents[i].name;
-    let indicator = $("#players").find("[data-user-id="+userId+"] .crash-ready-indicator").length > 0;
+    let indicator = $("#players").find(`[data-user-id="${userId}"] .crash-ready-indicator`);
     let title, classToAdd, classToRemove, iconClassToAdd, iconClassToRemove;
+
+    // This makes the icon aligned with the icon in the players-active container.
+    $("#players-inactive").removeClass('scrollable');
 
     if(ready){
       title = game.i18n.localize("READYCHECK.PlayerReady");
@@ -255,13 +246,13 @@ async function updatePlayersWindow(){
       iconClassToRemove = "fa-check";
     }
 
-    if(indicator){
-      $(indicator).removeClass(classToRemove);
+    if(indicator && indicator.length > 0){
       $(indicator).removeClass(iconClassToRemove);
+      $(indicator).removeClass(classToRemove);
       $(indicator).addClass(classToAdd);
       $(indicator).addClass(iconClassToAdd);
     } else {
-      $("#players").find("[data-user-id="+userId+"]").append(`<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}"></i>`);
+      $("#players").find(`[data-user-id="${userId}"]`).append(`<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}"></i>`);
     }
   }
 }
