@@ -2,7 +2,7 @@
     "id": "ready-check",
     "title": "Ready Set Go! - A Ready Check Module",
     "description": "Allows the GM to initiate a ready check, displaying a dialog on each player's screen that prompts them to indicate when they're ready. Also gives players the ability to change their ready status at any time via a button near the chat input.",
-    "version": "13.0.0",
+    "version": "13.0.1",
     "authors": [
         {
             "name": "Justin Freitas"
@@ -16,21 +16,17 @@
         "verified": "13"
     },
     "scripts": [],
-    "esmodules": [
-        "ready-check.js"
-    ],
-    "styles": [
-        "styles/ready-check.css"
-    ],
+    "esmodules": ["ready-check.js"],
+    "styles": ["styles/ready-check.css"],
     "languages": [
         {
-        "lang": "en",
-        "name": "English",
-        "path": "lang/en.json"
+            "lang": "en",
+            "name": "English",
+            "path": "lang/en.json"
         }
     ],
     "socket": true,
     "url": "https://github.com/JustinFreitas/ration-expiration-date/",
-    "manifest": "https://raw.githubusercontent.com/JustinFreitas/ration-expiration-date/master/module.json",
-    "download": "https://github.com/JustinFreitas/ration-expiration-date/releases/download/v13.0.0/ration-expiration-date.zip"
+    "manifest": "",
+    "download": ""
 }

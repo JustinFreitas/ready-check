@@ -47,14 +47,13 @@ Hooks.once("init", function () {
 
 // Reset Status When the Game is Ready
 Hooks.once("ready", async function () {
-    await createSocketHandler();  //TODO: Move to renderSidebar?
-    await updatePlayersWindow();  //TODO: Delete and use from renderPlayers?
     if (game.user.isGM) {
         displayGmDialog();
     }
 });
 
 Hooks.on("renderSidebar", async function () {
+    await createSocketHandler();
     await createButtons();
 });
 
