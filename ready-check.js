@@ -45,13 +45,6 @@ Hooks.once("init", function () {
     });
 });
 
-// Reset Status When the Game is Ready
-Hooks.once("ready", async function () {
-    if (game.user.isGM) {
-        displayGmDialog();
-    }
-});
-
 // Set Up Buttons and Socket Stuff
 Hooks.on("renderChatLog", async function () {
     createButtons();
