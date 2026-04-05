@@ -84,7 +84,7 @@ async function setAllToNotReady() {
 // CREATE THE UI BUTTON FOR THE GM AND PLAYERS
 async function createButtons() {
     let btnTitle = game.i18n.localize("READYCHECK.UiChangeButton");
-    if (game.user.role === 4) {
+    if (game.user.isGM) {
         // if GM
         btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
     }
@@ -100,7 +100,7 @@ async function createButtons() {
         sidebarDiv.prepend(sidebarBtn);
         jQuery(".crash-ready-check-sidebar").click(async (event) => {
             event.preventDefault();
-            if (game.user.role === 4) {
+            if (game.user.isGM) {
                 displayGmDialog();
             } else {
                 displayStatusUpdateDialog();
@@ -156,6 +156,11 @@ function displayGmDialog() {
             label: game.i18n.localize("READYCHECK.GmDialogButtonStatus"),
             callback: displayStatusUpdateDialog,
         },
+        clear: {
+            icon: "<i class='fas fa-broom'></i>",
+            label: game.i18n.localize("READYCHECK.GmDialogButtonClear"),
+            callback: setAllToNotReady,
+        },
     };
 
     new Dialog({
@@ -186,7 +191,7 @@ function displayStatusUpdateDialog() {
         return;
     }
 
-    const data = { action: "update", ready: false, userId: game.user._id };
+    const data = { action: "update", ready: false, userId: game.user.id };
     const buttons = {
         yes: {
             icon: "<i class='fas fa-check'></i>",
@@ -225,7 +230,7 @@ function displayReadyCheckDialog() {
         return;
     }
 
-    const data = { action: "update", ready: false, userId: game.user._id };
+    const data = { action: "update", ready: false, userId: game.user.id };
     const buttons = {
         yes: {
             icon: "<i class='fas fa-check'></i>",
@@ -329,7 +334,7 @@ async function updatePlayersWindow() {
             "ready-check",
             "isReady"
         );
-        const userId = game.users.contents[i]._id;
+        const userId = game.users.contents[i].id;
         const indicator = $("#players").find(
             `[data-user-id="${userId}"] .crash-ready-indicator`
         );
