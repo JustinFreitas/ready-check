@@ -45,13 +45,13 @@ Hooks.once("init", function () {
     });
 });
 
-Hooks.on("renderSidebar", async function () {
+Hooks.on("renderSidebar", async function (app, html, data) {
     await createSocketHandler();
-    await createButtons();
+    await createButtons(html);
 });
 
-Hooks.on("renderChatLog", async function () {
-    await createButtons();
+Hooks.on("renderChatLog", async function (app, html, data) {
+    await createButtons(html);
 });
 
 // Update the display of the Player UI.
@@ -86,27 +86,32 @@ async function setAllToNotReady() {
 }
 
 // CREATE THE UI BUTTON FOR THE GM AND PLAYERS
-async function createButtons() {
+async function createButtons(html) {
     let btnTitle = game.i18n.localize("READYCHECK.UiChangeButton");
     if (game.user.isGM) {
         // if GM
         btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
     }
 
+    // Ensure we have a JQuery object regardless of Foundry version
+    const root = html instanceof HTMLElement ? $(html) : $(document);
+
     const sidebarBtn = $(
-        '<button type="button" class="crash-ready-check-sidebar ui-control icon fa-solid fa-hourglass-half" data-tooltip="" aria-label="Ready Check"></button>'
+        `<button type="button" class="crash-ready-check-sidebar ui-control icon fa-solid fa-hourglass-half" title="${btnTitle}" aria-label="${btnTitle}"></button>`
     );
-    let sidebarDiv = $("#roll-privacy");
-    if (sidebarDiv.length === 0) {
-        sidebarDiv = $(".chat-controls"); // V14 fallback
-    }
+
+    // Target the vertical icon stack (V13/V14)
+    // .roll-type-select is common in modern versions, #roll-privacy is legacy
+    let sidebarDiv = root.find(".roll-type-select");
+    if (sidebarDiv.length === 0) sidebarDiv = root.find("#roll-privacy");
+    if (sidebarDiv.length === 0) sidebarDiv = root.find(".chat-controls");
 
     const btnAlreadyInSidebar =
         sidebarDiv.find(".crash-ready-check-sidebar").length > 0;
 
     if (sidebarDiv.length > 0 && !btnAlreadyInSidebar) {
         sidebarDiv.prepend(sidebarBtn);
-        jQuery(".crash-ready-check-sidebar").click(async (event) => {
+        sidebarBtn.click(async (event) => {
             event.preventDefault();
             if (game.user.isGM) {
                 displayGmDialog();

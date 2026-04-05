@@ -1,10 +1,10 @@
-#sidebar .sidebar-tab #chat-controls .crash-ready-check-sidebar,
-#chat-popout #chat-controls .crash-ready-check-popout {
+.crash-ready-check-sidebar,
+.crash-ready-check-popout {
     flex: 0;
 }
 
-#sidebar .sidebar-tab #chat-controls .crash-ready-check-sidebar i,
-#chat-popout #chat-controls .crash-ready-check-popout i {
+.crash-ready-check-sidebar i,
+.crash-ready-check-popout i {
     width: unset;
     height: unset;
     margin-right: 5px;
