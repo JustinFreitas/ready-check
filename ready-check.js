@@ -50,6 +50,10 @@ Hooks.on("renderSidebar", async function () {
     await createButtons();
 });
 
+Hooks.on("renderChatLog", async function () {
+    await createButtons();
+});
+
 // Update the display of the Player UI.
 Hooks.on("renderPlayers", async function () {
     await updatePlayersWindow();
@@ -92,11 +96,15 @@ async function createButtons() {
     const sidebarBtn = $(
         '<button type="button" class="crash-ready-check-sidebar ui-control icon fa-solid fa-hourglass-half" data-tooltip="" aria-label="Ready Check"></button>'
     );
-    const sidebarDiv = $("#roll-privacy");
-    const btnAlreadyInSidebar =
-        $("#roll-privacy").find(".crash-ready-check-sidebar").length > 0;
+    let sidebarDiv = $("#roll-privacy");
+    if (sidebarDiv.length === 0) {
+        sidebarDiv = $(".chat-controls"); // V14 fallback
+    }
 
-    if (!btnAlreadyInSidebar) {
+    const btnAlreadyInSidebar =
+        sidebarDiv.find(".crash-ready-check-sidebar").length > 0;
+
+    if (sidebarDiv.length > 0 && !btnAlreadyInSidebar) {
         sidebarDiv.prepend(sidebarBtn);
         jQuery(".crash-ready-check-sidebar").click(async (event) => {
             event.preventDefault();
