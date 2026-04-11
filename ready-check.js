@@ -45,12 +45,8 @@ Hooks.once("init", function () {
     });
 });
 
-Hooks.on("renderSidebar", async function (app, html, data) {
-    await createSocketHandler();
-    await createButtons(html);
-});
-
 Hooks.on("renderChatLog", async function (app, html, data) {
+    await createSocketHandler();
     await createButtons(html);
 });
 
@@ -87,39 +83,94 @@ async function setAllToNotReady() {
 
 // CREATE THE UI BUTTON FOR THE GM AND PLAYERS
 async function createButtons(html) {
+    // Target the chat controls area instead of the main sidebar container
+    let chatControls;
+    if (html && html.length > 0) {
+        chatControls = html[0].querySelector('#chat-controls');
+    }
+    if (!chatControls) {
+        chatControls = document.querySelector('#chat-controls');
+    }
+    
+    if (chatControls) {
+        _injectButton(chatControls);
+    }
+}
+
+/**
+ * Common injection logic for the sidebar button
+ * @param {HTMLElement} navContainer - The sidebar navigation container
+ */
+function _injectButton(navContainer) {
+    if (navContainer.querySelector(".crash-ready-check-sidebar")) return;
+
     let btnTitle = game.i18n.localize("READYCHECK.UiChangeButton");
-    if (game.user.isGM) {
-        // if GM
-        btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
-    }
+    if (game.user.isGM) btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
 
-    // Ensure we have a JQuery object regardless of Foundry version
-    const root = html instanceof HTMLElement ? $(html) : $(document);
+    const clickHandler = async (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        if (game.user.isGM) displayGmDialog();
+        else displayStatusUpdateDialog();
+    };
 
-    const sidebarBtn = $(
-        `<button type="button" class="crash-ready-check-sidebar ui-control icon fa-solid fa-hourglass-half" title="${btnTitle}" aria-label="${btnTitle}"></button>`
-    );
+    // Locate the native dice visibility control container
+    const globeIcon = navContainer.querySelector('[data-mode="publicroll"] i, .fa-globe, .fa-earth-americas');
+    if (globeIcon) {
+        const rollModeItem = globeIcon.closest('[data-mode], .roll-mode, li');
+        if (rollModeItem && rollModeItem.parentNode) {
+            // Deep clone the entire roll mode element so we perfectly match its wrappers/borders
+            const sidebarBtn = rollModeItem.cloneNode(true);
+            sidebarBtn.className = rollModeItem.className + ' crash-ready-check-sidebar';
+            sidebarBtn.classList.remove('active', 'selected', 'focus');
+            sidebarBtn.removeAttribute('data-mode');
 
-    // Target the vertical icon stack (V13/V14)
-    // .roll-type-select is common in modern versions, #roll-privacy is legacy
-    let sidebarDiv = root.find(".roll-type-select");
-    if (sidebarDiv.length === 0) sidebarDiv = root.find("#roll-privacy");
-    if (sidebarDiv.length === 0) sidebarDiv = root.find(".chat-controls");
-
-    const btnAlreadyInSidebar =
-        sidebarDiv.find(".crash-ready-check-sidebar").length > 0;
-
-    if (sidebarDiv.length > 0 && !btnAlreadyInSidebar) {
-        sidebarDiv.prepend(sidebarBtn);
-        sidebarBtn.click(async (event) => {
-            event.preventDefault();
-            if (game.user.isGM) {
-                displayGmDialog();
-            } else {
-                displayStatusUpdateDialog();
+            // Swap the main icon - handle both inner <i> tags and self-contained <a> nodes
+            const innerIconNode = sidebarBtn.classList.contains('fa-globe') || sidebarBtn.classList.contains('fa-earth-americas')
+                ? sidebarBtn
+                : (sidebarBtn.querySelector('.fa-globe, .fa-earth-americas') || sidebarBtn.querySelector('i') || sidebarBtn);
+            
+            if (innerIconNode) {
+                innerIconNode.className = innerIconNode.className.replace(/fa-globe/g, 'fa-hourglass-half').replace(/fa-earth-americas/g, 'fa-hourglass-half');
+                // Ensure the icon updates even if it wasn't a globe (fallback)
+                if (!innerIconNode.className.includes('fa-hourglass-half')) {
+                    innerIconNode.classList.add('fa-hourglass-half');
+                }
             }
-        });
+
+            // Clean up attributes and active/highlighted states from all layers of the clone
+            sidebarBtn.title = btnTitle;
+            sidebarBtn.setAttribute('aria-label', btnTitle);
+            sidebarBtn.setAttribute('data-tooltip', btnTitle);
+            sidebarBtn.removeAttribute('aria-pressed');
+            sidebarBtn.removeAttribute('aria-current');
+            sidebarBtn.style.marginBottom = '6px';
+            sidebarBtn.style.borderBottom = '1px solid var(--color-border-dark-4, #222)';
+            sidebarBtn.style.borderRadius = '5px';
+            
+            sidebarBtn.querySelectorAll('*').forEach(el => {
+                el.removeAttribute('data-mode');
+                el.removeAttribute('aria-pressed');
+                el.removeAttribute('aria-current');
+                el.classList.remove('active', 'selected', 'focus', 'current');
+                if (el.hasAttribute('data-tooltip')) el.setAttribute('data-tooltip', btnTitle);
+                if (el.hasAttribute('title')) el.setAttribute('title', btnTitle);
+            });
+
+            sidebarBtn.addEventListener("click", clickHandler);
+            rollModeItem.parentNode.insertBefore(sidebarBtn, rollModeItem);
+            return;
+        }
     }
+
+    // Fallback if the dice visibility block isn't found
+    const fallbackBtn = document.createElement('a');
+    fallbackBtn.title = btnTitle;
+    fallbackBtn.setAttribute('aria-label', btnTitle);
+    fallbackBtn.innerHTML = '<i class="fa-solid fa-hourglass"></i>';
+    fallbackBtn.className = 'crash-ready-check-sidebar chat-control-icon';
+    fallbackBtn.addEventListener("click", clickHandler);
+    navContainer.prepend(fallbackBtn);
 }
 
 // CREATE THE SOCKET HANDLER
@@ -181,6 +232,9 @@ function displayGmDialog() {
         content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
         buttons: buttons,
         default: "check",
+    }, {
+        width: 300,
+        classes: ["dialog", "ready-check-stacked-dialog"]
     }).render(true);
 }
 
@@ -322,8 +376,10 @@ function displayStatusUpdateChatMessage(data) {
 function playReadyCheckAlert() {
     const playAlert = game.settings.get("ready-check", "playAlertForCheck");
     const alertSound = game.settings.get("ready-check", "checkAlertSoundPath");
+    const audioHelper = foundry?.audio?.AudioHelper ?? AudioHelper;
+    
     if (playAlert && !alertSound) {
-        AudioHelper.play(
+        audioHelper.play(
             {
                 src: "modules/ready-check/sounds/notification.mp3",
                 volume: 1,
@@ -333,7 +389,7 @@ function playReadyCheckAlert() {
             true
         );
     } else if (playAlert && alertSound) {
-        AudioHelper.play(
+        audioHelper.play(
             { src: alertSound, volume: 1, autoplay: true, loop: false },
             true
         );
