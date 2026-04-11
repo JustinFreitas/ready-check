@@ -109,6 +109,11 @@ function _injectButton(navContainer) {
 
     const clickHandler = async (event) => {
         event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        if (event.currentTarget) event.currentTarget.blur();
+        
         if (game.user.isGM) displayGmDialog();
         else displayStatusUpdateDialog();
     };
@@ -144,7 +149,7 @@ function _injectButton(navContainer) {
             }
 
             // Clean up attributes and active/highlighted states from all layers of the clone
-            sidebarBtn.title = btnTitle;
+            sidebarBtn.removeAttribute('title');
             sidebarBtn.setAttribute('aria-label', btnTitle);
             sidebarBtn.setAttribute('data-tooltip', btnTitle);
             sidebarBtn.removeAttribute('aria-pressed');
@@ -159,7 +164,7 @@ function _injectButton(navContainer) {
                 el.removeAttribute('aria-current');
                 el.classList.remove('active', 'selected', 'focus', 'current');
                 if (el.hasAttribute('data-tooltip')) el.setAttribute('data-tooltip', btnTitle);
-                if (el.hasAttribute('title')) el.setAttribute('title', btnTitle);
+                el.removeAttribute('title');
             });
 
             sidebarBtn.addEventListener("click", clickHandler);
@@ -170,7 +175,8 @@ function _injectButton(navContainer) {
 
     // Fallback if the dice visibility block isn't found
     const fallbackBtn = document.createElement('a');
-    fallbackBtn.title = btnTitle;
+    fallbackBtn.removeAttribute('title');
+    fallbackBtn.setAttribute('data-tooltip', btnTitle);
     fallbackBtn.setAttribute('aria-label', btnTitle);
     fallbackBtn.innerHTML = '<i class="fas fa-hourglass-half"></i>';
     fallbackBtn.className = 'crash-ready-check-sidebar chat-control-icon';
