@@ -109,7 +109,6 @@ function _injectButton(navContainer) {
 
     const clickHandler = async (event) => {
         event.preventDefault();
-        event.stopPropagation();
         if (game.user.isGM) displayGmDialog();
         else displayStatusUpdateDialog();
     };
@@ -117,13 +116,18 @@ function _injectButton(navContainer) {
     // Locate the native dice visibility control container
     const globeIcon = navContainer.querySelector('[data-mode="publicroll"] i, .fa-globe, .fa-earth-americas');
     if (globeIcon) {
-        const rollModeItem = globeIcon.closest('[data-mode], .roll-mode, li');
-        if (rollModeItem && rollModeItem.parentNode) {
+        // Broadly capture any structural parent encompassing the icon (fixes OSE V13 DOM wrapper differences)
+        const rollModeItem = globeIcon.closest('[data-mode], .roll-mode, li, button, a') || globeIcon.parentNode;
+        if (rollModeItem && rollModeItem !== navContainer && rollModeItem.parentNode) {
             // Deep clone the entire roll mode element so we perfectly match its wrappers/borders
             const sidebarBtn = rollModeItem.cloneNode(true);
             sidebarBtn.className = rollModeItem.className + ' crash-ready-check-sidebar';
-            sidebarBtn.classList.remove('active', 'selected', 'focus');
-            sidebarBtn.removeAttribute('data-mode');
+            sidebarBtn.classList.remove('active', 'selected', 'focus', 'current');
+            
+            // Retain the data-mode attribute but change its value so it inherits structural CSS without triggering native roll logic
+            if (sidebarBtn.hasAttribute('data-mode')) {
+                sidebarBtn.setAttribute('data-mode', 'readycheck');
+            }
 
             // Swap the main icon - handle both inner <i> tags and self-contained <a> nodes
             const innerIconNode = sidebarBtn.classList.contains('fa-globe') || sidebarBtn.classList.contains('fa-earth-americas')
@@ -135,6 +139,7 @@ function _injectButton(navContainer) {
                 // Ensure the icon updates even if it wasn't a globe (fallback)
                 if (!innerIconNode.className.includes('fa-hourglass-half')) {
                     innerIconNode.classList.add('fa-hourglass-half');
+                    innerIconNode.classList.add('fas'); // FA5 compat
                 }
             }
 
@@ -149,7 +154,7 @@ function _injectButton(navContainer) {
             sidebarBtn.style.borderRadius = '5px';
             
             sidebarBtn.querySelectorAll('*').forEach(el => {
-                el.removeAttribute('data-mode');
+                if (el.hasAttribute('data-mode')) el.setAttribute('data-mode', 'readycheck');
                 el.removeAttribute('aria-pressed');
                 el.removeAttribute('aria-current');
                 el.classList.remove('active', 'selected', 'focus', 'current');
@@ -167,10 +172,17 @@ function _injectButton(navContainer) {
     const fallbackBtn = document.createElement('a');
     fallbackBtn.title = btnTitle;
     fallbackBtn.setAttribute('aria-label', btnTitle);
-    fallbackBtn.innerHTML = '<i class="fa-solid fa-hourglass"></i>';
+    fallbackBtn.innerHTML = '<i class="fas fa-hourglass-half"></i>';
     fallbackBtn.className = 'crash-ready-check-sidebar chat-control-icon';
     fallbackBtn.addEventListener("click", clickHandler);
-    navContainer.prepend(fallbackBtn);
+    
+    // Inject before the primary chat control icon if it exists, otherwise prepend
+    const existingIcon = navContainer.querySelector('.chat-control-icon:not(.crash-ready-check-sidebar)');
+    if (existingIcon && existingIcon.parentNode) {
+        existingIcon.parentNode.insertBefore(fallbackBtn, existingIcon);
+    } else {
+        navContainer.prepend(fallbackBtn);
+    }
 }
 
 // CREATE THE SOCKET HANDLER
