@@ -43,13 +43,17 @@ Hooks.once("init", function () {
         default: "modules/ready-check/sounds/notification.mp3",
         type: String,
     });
+
+    // Register the socket handler exactly once. Registering it from a render hook
+    // would add a new listener on every chat re-render (popout/collapse), causing
+    // a single socket message to be processed multiple times.
+    createSocketHandler();
 });
 
 // V14+: `renderChatInput` is the dedicated hook that hands us the `#chat-controls`
 // element directly, and it re-fires whenever the controls are re-parented (sidebar
 // popout/collapse), so our button is re-injected instead of being lost.
 Hooks.on("renderChatInput", function (app, elements) {
-    createSocketHandler();
     const chatControls = elements?.["#chat-controls"] ?? document.querySelector("#chat-controls");
     if (chatControls) injectButton(chatControls);
 });
@@ -57,7 +61,6 @@ Hooks.on("renderChatInput", function (app, elements) {
 // V13 fallback: the chat controls there live inside the chat log render, and
 // `renderChatInput` is not emitted. `html` may be a jQuery object or HTMLElement.
 Hooks.on("renderChatLog", function (app, html) {
-    createSocketHandler();
     const root = html?.[0] ?? html ?? document;
     const chatControls = root.querySelector?.("#chat-controls") ?? document.querySelector("#chat-controls");
     if (chatControls) injectButton(chatControls);
@@ -147,7 +150,10 @@ function injectButton(chatControls) {
 }
 
 // CREATE THE SOCKET HANDLER
-async function createSocketHandler() {
+// Called once from the init hook. Removes any prior handler first so it stays
+// idempotent even if invoked again, preventing duplicate message processing.
+function createSocketHandler() {
+    game.socket.off("module.ready-check");
     game.socket.on("module.ready-check", async (data) => {
         if (data.action === "check") {
             displayReadyCheckDialog();
@@ -307,7 +313,10 @@ async function updateReadyStatus(data) {
 // PROCESS READY CHECK RESPONSE (GM)
 async function processReadyResponse(data) {
     if (game.user.isGM) {
+        // Guard against a stale or malformed userId from another client; an
+        // unknown id would otherwise throw on setFlag and break the handler.
         const userToUpdate = game.users.get(data.userId);
+        if (!userToUpdate) return;
         await userToUpdate.setFlag("ready-check", "isReady", data.ready);
         ui.players.render(true);
         sendPlayerRenderSocketMessage();
@@ -317,7 +326,9 @@ async function processReadyResponse(data) {
 // DISPLAY A CHAT MESSAGE WHEN A USER RESPONDS TO A READY CHECK
 function displayReadyCheckChatMessage(data) {
     if (game.settings.get("ready-check", "showChatMessagesForChecks")) {
-        const username = game.users.get(data.userId).name;
+        const user = game.users.get(data.userId);
+        if (!user) return;
+        const username = user.name;
         const content = `${username} ${game.i18n.localize(
             "READYCHECK.ChatTextCheck"
         )}`;
@@ -331,7 +342,9 @@ function displayReadyCheckChatMessage(data) {
 // DISPLAY A CHAT MESSAGE WHEN A USER UPDATES THEIR STATUS
 function displayStatusUpdateChatMessage(data) {
     if (game.settings.get("ready-check", "showChatMessagesForUserUpdates")) {
-        const username = game.users.get(data.userId).name;
+        const user = game.users.get(data.userId);
+        if (!user) return;
+        const username = user.name;
         const status = data.ready
             ? game.i18n.localize("READYCHECK.StatusReady")
             : game.i18n.localize("READYCHECK.StatusNotReady");
@@ -371,6 +384,10 @@ function playReadyCheckAlert() {
 
 // UPDATE PLAYER UI
 async function updatePlayersWindow() {
+    // This makes the icon aligned with the icon in the players-active container. For v13.
+    // Hoisted out of the per-user loop since it's a single global DOM effect.
+    $("#players-inactive").removeClass("scrollable");
+
     for (let i = 0; i < game.users.contents.length; i++) {
         const ready = await game.users.contents[i].getFlag(
             "ready-check",
@@ -381,9 +398,6 @@ async function updatePlayersWindow() {
             `[data-user-id="${userId}"] .crash-ready-indicator`
         );
         let title, classToAdd, classToRemove, iconClassToAdd, iconClassToRemove;
-
-        // This makes the icon aligned with the icon in the players-active container. For v13
-        $("#players-inactive").removeClass("scrollable");
 
         if (ready) {
             title = game.i18n.localize("READYCHECK.PlayerReady");
