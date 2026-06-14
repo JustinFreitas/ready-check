@@ -1,3 +1,9 @@
+# Version 14.0.1
+- Rebuilt the chat-controls ready check button from scratch to match native Foundry markup, so it inherits core styling, theming, and tooltips instead of cloning a system control.
+- Switched button injection to the V14 `renderChatInput` hook (with a `renderChatLog` fallback for V13), so the button is no longer lost when the chat is popped out or the sidebar is collapsed.
+- Fixed duplicate socket listeners that caused a single ready check response to be processed multiple times after re-rendering the chat.
+- Hardened against stale/unknown user IDs received over the socket.
+
 # Version 1.2.4
 - Compatibility with Foundry v10 and v11
 - Updated license. Previous versions of this module were released under CC, which wasn't really appropriate. Now we're using MIT. Have fun.
