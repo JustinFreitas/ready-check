@@ -1,21 +1,6 @@
-/* Sidebar button styles are now inherited from system classes: ui-control plain icon fa-solid fa-hourglass */
-
-/* Sidebar button styling to match native Foundry UI without breaking vertical flex */
-/* Essential style constraints to prevent the chat control icon from breaking alignment */
-.crash-ready-check-sidebar,
-.crash-ready-check-popout {
-    flex: 0;
-}
-
-.crash-ready-check-sidebar i,
-.crash-ready-check-popout i {
-    width: unset;
-    height: unset;
-    margin-right: 5px;
-    margin-left: 5px;
-    background: none;
-    cursor: pointer;
-}
+/* The ready-check button is built from scratch as a native chat control
+   (button.ui-control.icon.fa-solid.fa-hourglass-half), so styling, sizing, and
+   theming are inherited from core Foundry CSS. No overrides are needed here. */
 
 #players .player .crash-ready-indicator {
     flex: 0 0 8px;

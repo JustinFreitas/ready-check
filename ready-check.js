@@ -45,9 +45,22 @@ Hooks.once("init", function () {
     });
 });
 
-Hooks.on("renderChatLog", async function (app, html, data) {
-    await createSocketHandler();
-    await createButtons(html);
+// V14+: `renderChatInput` is the dedicated hook that hands us the `#chat-controls`
+// element directly, and it re-fires whenever the controls are re-parented (sidebar
+// popout/collapse), so our button is re-injected instead of being lost.
+Hooks.on("renderChatInput", function (app, elements) {
+    createSocketHandler();
+    const chatControls = elements?.["#chat-controls"] ?? document.querySelector("#chat-controls");
+    if (chatControls) injectButton(chatControls);
+});
+
+// V13 fallback: the chat controls there live inside the chat log render, and
+// `renderChatInput` is not emitted. `html` may be a jQuery object or HTMLElement.
+Hooks.on("renderChatLog", function (app, html) {
+    createSocketHandler();
+    const root = html?.[0] ?? html ?? document;
+    const chatControls = root.querySelector?.("#chat-controls") ?? document.querySelector("#chat-controls");
+    if (chatControls) injectButton(chatControls);
 });
 
 // Update the display of the Player UI.
@@ -82,113 +95,55 @@ async function setAllToNotReady() {
 }
 
 // CREATE THE UI BUTTON FOR THE GM AND PLAYERS
-async function createButtons(html) {
-    // Target the chat controls area instead of the main sidebar container
-    let chatControls;
-    if (html && html.length > 0) {
-        chatControls = html[0].querySelector('#chat-controls');
-    }
-    if (!chatControls) {
-        chatControls = document.querySelector('#chat-controls');
-    }
-    
-    if (chatControls) {
-        _injectButton(chatControls);
-    }
-}
+//
+// Build the button from scratch to match the native Foundry chat control markup
+// rather than cloning a system control. In V14 the chat controls are plain
+// <button class="ui-control icon fa-solid ..."> elements grouped inside
+// #roll-privacy (the dice-visibility split-button) and #chat-controls. We mirror
+// that markup so styling, theming, and tooltips come "for free" from core CSS.
+function injectButton(chatControls) {
+    if (chatControls.querySelector(".crash-ready-check-sidebar")) return;
 
-/**
- * Common injection logic for the sidebar button
- * @param {HTMLElement} navContainer - The sidebar navigation container
- */
-function _injectButton(navContainer) {
-    if (navContainer.querySelector(".crash-ready-check-sidebar")) return;
+    const btnTitle = game.user.isGM
+        ? game.i18n.localize("READYCHECK.UiGmButton")
+        : game.i18n.localize("READYCHECK.UiChangeButton");
 
-    let btnTitle = game.i18n.localize("READYCHECK.UiChangeButton");
-    if (game.user.isGM) btnTitle = game.i18n.localize("READYCHECK.UiGmButton");
+    // Prefer to sit alongside the dice-visibility controls; fall back to the
+    // controls bar itself (e.g. V13, or systems that restructure the privacy group).
+    const rollPrivacy = chatControls.querySelector("#roll-privacy");
+    const container = rollPrivacy ?? chatControls;
 
-    const clickHandler = async (event) => {
+    // Copy a sibling control's classes so we inherit whatever the running Foundry
+    // version uses (V14: "ui-control icon", older builds may differ). When there's
+    // no sibling to copy, synthesize the V14 defaults.
+    const sibling = container.querySelector("button.ui-control, .chat-control-icon, button");
+    const baseClasses = sibling ? sibling.className : "ui-control icon fa-solid";
+
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = `${baseClasses} crash-ready-check-sidebar`;
+    // Strip any roll-mode/active state inherited from the sibling's class list,
+    // then ensure our icon is present (replacing the sibling's icon if copied).
+    btn.classList.remove("active", "selected");
+    for (const cls of [...btn.classList]) {
+        if (cls.startsWith("fa-") && cls !== "fa-solid") btn.classList.remove(cls);
+    }
+    btn.classList.add("fa-solid", "fa-hourglass-half");
+    btn.removeAttribute("data-roll-mode");
+    btn.removeAttribute("aria-pressed");
+    // Empty data-tooltip + aria-label is the native pattern for the hover tooltip.
+    btn.setAttribute("data-tooltip", "");
+    btn.setAttribute("aria-label", btnTitle);
+
+    btn.addEventListener("click", (event) => {
         event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        
-        if (event.currentTarget) event.currentTarget.blur();
-        
+        // Drop focus so the button doesn't keep a pressed/focused look after click.
+        event.currentTarget?.blur();
         if (game.user.isGM) displayGmDialog();
         else displayStatusUpdateDialog();
-    };
+    });
 
-    // Locate the native dice visibility control container
-    const globeIcon = navContainer.querySelector('[data-mode="publicroll"] i, .fa-globe, .fa-earth-americas');
-    if (globeIcon) {
-        // Broadly capture any structural parent encompassing the icon (fixes OSE V13 DOM wrapper differences)
-        const rollModeItem = globeIcon.closest('[data-mode], .roll-mode, li, button, a') || globeIcon.parentNode;
-        if (rollModeItem && rollModeItem !== navContainer && rollModeItem.parentNode) {
-            // Deep clone the entire roll mode element so we perfectly match its wrappers/borders
-            const sidebarBtn = rollModeItem.cloneNode(true);
-            sidebarBtn.className = rollModeItem.className + ' crash-ready-check-sidebar';
-            sidebarBtn.classList.remove('active', 'selected', 'focus', 'current');
-            
-            // Retain the data-mode attribute but change its value so it inherits structural CSS without triggering native roll logic
-            if (sidebarBtn.hasAttribute('data-mode')) {
-                sidebarBtn.setAttribute('data-mode', 'readycheck');
-            }
-
-            // Swap the main icon - handle both inner <i> tags and self-contained <a> nodes
-            const innerIconNode = sidebarBtn.classList.contains('fa-globe') || sidebarBtn.classList.contains('fa-earth-americas')
-                ? sidebarBtn
-                : (sidebarBtn.querySelector('.fa-globe, .fa-earth-americas') || sidebarBtn.querySelector('i') || sidebarBtn);
-            
-            if (innerIconNode) {
-                innerIconNode.className = innerIconNode.className.replace(/fa-globe/g, 'fa-hourglass-half').replace(/fa-earth-americas/g, 'fa-hourglass-half');
-                // Ensure the icon updates even if it wasn't a globe (fallback)
-                if (!innerIconNode.className.includes('fa-hourglass-half')) {
-                    innerIconNode.classList.add('fa-hourglass-half');
-                    innerIconNode.classList.add('fas'); // FA5 compat
-                }
-            }
-
-            // Clean up attributes and active/highlighted states from all layers of the clone
-            sidebarBtn.removeAttribute('title');
-            sidebarBtn.setAttribute('aria-label', btnTitle);
-            sidebarBtn.setAttribute('data-tooltip', btnTitle);
-            sidebarBtn.removeAttribute('aria-pressed');
-            sidebarBtn.removeAttribute('aria-current');
-            sidebarBtn.style.marginBottom = '6px';
-            sidebarBtn.style.borderBottom = '1px solid var(--color-border-dark-4, #222)';
-            sidebarBtn.style.borderRadius = '5px';
-            
-            sidebarBtn.querySelectorAll('*').forEach(el => {
-                if (el.hasAttribute('data-mode')) el.setAttribute('data-mode', 'readycheck');
-                el.removeAttribute('aria-pressed');
-                el.removeAttribute('aria-current');
-                el.classList.remove('active', 'selected', 'focus', 'current');
-                if (el.hasAttribute('data-tooltip')) el.setAttribute('data-tooltip', btnTitle);
-                el.removeAttribute('title');
-            });
-
-            sidebarBtn.addEventListener("click", clickHandler);
-            rollModeItem.parentNode.insertBefore(sidebarBtn, rollModeItem);
-            return;
-        }
-    }
-
-    // Fallback if the dice visibility block isn't found
-    const fallbackBtn = document.createElement('a');
-    fallbackBtn.removeAttribute('title');
-    fallbackBtn.setAttribute('data-tooltip', btnTitle);
-    fallbackBtn.setAttribute('aria-label', btnTitle);
-    fallbackBtn.innerHTML = '<i class="fas fa-hourglass-half"></i>';
-    fallbackBtn.className = 'crash-ready-check-sidebar chat-control-icon';
-    fallbackBtn.addEventListener("click", clickHandler);
-    
-    // Inject before the primary chat control icon if it exists, otherwise prepend
-    const existingIcon = navContainer.querySelector('.chat-control-icon:not(.crash-ready-check-sidebar)');
-    if (existingIcon && existingIcon.parentNode) {
-        existingIcon.parentNode.insertBefore(fallbackBtn, existingIcon);
-    } else {
-        navContainer.prepend(fallbackBtn);
-    }
+    container.prepend(btn);
 }
 
 // CREATE THE SOCKET HANDLER
