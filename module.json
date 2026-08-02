@@ -1,16 +1,21 @@
 {
+  "id": "ready-check",
   "name": "ready-check",
   "title": "Ready Set Go! - A Ready Check Module",
   "description": "Allows the GM to initiate a ready check, displaying a dialog on each player's screen that prompts them to indicate when they're ready. Also gives players the ability to change their ready status at any time via a button near the chat input.",
-  "author": "CRASH1115#2944",
-  "authors": [],
-  "url": "https://github.com/crash1115/ready-check",
-  "readme": "https://github.com//crash1115/ready-check/blob/master/README.md",
-  "bugs": "https://github.com/crash1115/ready-check/issues",
-  "flags": {},
-  "version": "1.2.4",
-  "minimumCoreVersion": "10",
-  "compatibleCoreVersion": "11",
+  "version": "14.0.1",
+  "authors": [
+    {
+      "name": "Justin Freitas"
+    },
+    {
+      "name": "CRASH1115"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "14"
+  },
   "scripts": [],
   "esmodules": [
     "ready-check.js"
@@ -25,12 +30,10 @@
       "path": "lang/en.json"
     }
   ],
-  "packs": [],
-  "system": [],
-  "dependencies": [],
   "socket": true,
-  "manifest": "https://raw.githubusercontent.com/crash1115/ready-check/main/module.json",
-  "download": "https://github.com/crash1115/ready-check/releases/download/v1.2.4/ready-check.zip",
-  "protected": false,
-  "coreTranslation": false
+  "url": "https://github.com/JustinFreitas/ready-check",
+  "readme": "https://github.com/JustinFreitas/ready-check/blob/main/README.md",
+  "bugs": "https://github.com/JustinFreitas/ready-check/issues",
+  "manifest": "https://raw.githubusercontent.com/JustinFreitas/ready-check/main/module.json",
+  "download": "https://github.com/JustinFreitas/ready-check/archive/refs/heads/main.zip"
 }
