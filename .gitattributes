@@ -1,3 +1,5 @@
-# Keep repo-only files out of the `git archive` release zip.
+# Keep repo-only files out of the `git archive` release zip. Anything added here
+# must also be reflected in the release workflow's allowed-root-entries check.
 .gitattributes export-ignore
 .gitignore export-ignore
+.github export-ignore

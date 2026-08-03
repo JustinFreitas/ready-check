@@ -124,6 +124,15 @@ jobs:
               fail "ready-check.zip is missing $f (files must sit at the archive root)."
           done
 
+          # Allowlist the archive root, so repo-only additions cannot quietly ship
+          # to every Foundry install. Anything new here needs either an
+          # export-ignore rule in .gitattributes or an entry below.
+          unexpected=$(unzip -Z1 ready-check.zip | awk -F/ 'NF && $1 != "" {print $1}' | sort -u \
+            | grep -vxE 'LICENSE|README\.md|changelog\.md|lang|module\.json|ready-check\.js|sounds|styles' || true)
+          if [ -n "$unexpected" ]; then
+            fail "ready-check.zip has unexpected root entries: $(echo "$unexpected" | tr '\n' ' ')"
+          fi
+
           zipped=$(unzip -p ready-check.zip module.json | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')
           [ "$zipped" = "$VERSION" ] || fail "zip module.json version ($zipped) != tag ($VERSION)."
 
