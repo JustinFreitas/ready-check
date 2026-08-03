@@ -1,39 +1,34 @@
 {
-  "id": "ready-check",
-  "name": "ready-check",
-  "title": "Ready Set Go! - A Ready Check Module",
-  "description": "Allows the GM to initiate a ready check, displaying a dialog on each player's screen that prompts them to indicate when they're ready. Also gives players the ability to change their ready status at any time via a button near the chat input.",
-  "version": "14.0.1",
-  "authors": [
-    {
-      "name": "Justin Freitas"
+    "id": "ready-check",
+    "title": "Ready Set Go! - A Ready Check Module",
+    "description": "Allows the GM to initiate a ready check, displaying a dialog on each player's screen that prompts them to indicate when they're ready. Also gives players the ability to change their ready status at any time via a button near the chat input.",
+    "version": "14.0.2",
+    "authors": [
+        {
+            "name": "Justin Freitas"
+        },
+        {
+            "name": "CRASH1115"
+        }
+    ],
+    "compatibility": {
+        "minimum": "13",
+        "verified": "14"
     },
-    {
-      "name": "CRASH1115"
-    }
-  ],
-  "compatibility": {
-    "minimum": "13",
-    "verified": "14"
-  },
-  "scripts": [],
-  "esmodules": [
-    "ready-check.js"
-  ],
-  "styles": [
-    "styles/ready-check.css"
-  ],
-  "languages": [
-    {
-      "lang": "en",
-      "name": "English",
-      "path": "lang/en.json"
-    }
-  ],
-  "socket": true,
-  "url": "https://github.com/JustinFreitas/ready-check",
-  "readme": "https://github.com/JustinFreitas/ready-check/blob/main/README.md",
-  "bugs": "https://github.com/JustinFreitas/ready-check/issues",
-  "manifest": "https://github.com/JustinFreitas/ready-check/releases/latest/download/module.json",
-  "download": "https://github.com/JustinFreitas/ready-check/releases/download/v14.0.1/ready-check.zip"
+    "scripts": [],
+    "esmodules": ["ready-check.js"],
+    "styles": ["styles/ready-check.css"],
+    "languages": [
+        {
+            "lang": "en",
+            "name": "English",
+            "path": "lang/en.json"
+        }
+    ],
+    "socket": true,
+    "url": "https://github.com/JustinFreitas/ready-check",
+    "readme": "https://github.com/JustinFreitas/ready-check/blob/main/README.md",
+    "bugs": "https://github.com/JustinFreitas/ready-check/issues",
+    "manifest": "https://github.com/JustinFreitas/ready-check/releases/latest/download/module.json",
+    "download": "https://github.com/JustinFreitas/ready-check/releases/download/v14.0.2/ready-check.zip"
 }

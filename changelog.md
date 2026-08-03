@@ -1,3 +1,13 @@
+# Version 14.0.2
+- Packaging fix. The 14.0.1 release was tagged from `main`, which at the time still held the original 1.2.4 code — so the published zip shipped a V11-era `ready-check.js` behind a V14 manifest. The result was a silently missing chat-controls button (the old code targets `.chat-control-icon`, which no longer exists in V13/V14) and missing player-list ready indicators (it hooks `renderPlayerList` rather than `renderPlayers`).
+- The V13/V14 work from the `v14` branch is now merged into `main`, which is the single release branch going forward. No functional changes over what 14.0.1 was meant to contain.
+
+# Version 14.0.1
+- Rebuilt the chat-controls ready check button from scratch to match native Foundry markup, so it inherits core styling, theming, and tooltips instead of cloning a system control.
+- Switched button injection to the V14 `renderChatInput` hook (with a `renderChatLog` fallback for V13), so the button is no longer lost when the chat is popped out or the sidebar is collapsed.
+- Fixed duplicate socket listeners that caused a single ready check response to be processed multiple times after re-rendering the chat.
+- Hardened against stale/unknown user IDs received over the socket.
+
 # Version 1.2.4
 - Compatibility with Foundry v10 and v11
 - Updated license. Previous versions of this module were released under CC, which wasn't really appropriate. Now we're using MIT. Have fun.

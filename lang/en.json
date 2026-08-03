@@ -13,6 +13,7 @@
   "READYCHECK.GmDialogContent": "What action would you like to perform?",
   "READYCHECK.GmDialogButtonCheck": "Start A Ready Check",
   "READYCHECK.GmDialogButtonStatus": "Set My Ready Status",
+  "READYCHECK.GmDialogButtonClear": "Clear All Ready Statuses",
 
   "READYCHECK.PlayerReady": "Player is Ready",
   "READYCHECK.PlayerNotReady": "Player is Not Ready",
