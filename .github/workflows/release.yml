@@ -1,0 +1,147 @@
+name: Release Creation
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # Check out the commit the release tag actually points at, not the branch
+      # head. Everything below therefore validates exactly what is being shipped.
+      - name: Checkout the release tag
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      # Tags are "v14.0.2"; the manifest version is "14.0.2".
+      - name: Derive version from tag
+        id: version
+        run: echo "value=${TAG#v}" >> "$GITHUB_OUTPUT"
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+
+      # v14.0.1 shipped the 2023 code because the tag was cut from a branch that
+      # did not have the V13/V14 work merged. The manifest looked correct, so
+      # nothing downstream noticed until the chat button silently vanished.
+      # These gates make that failure loud and stop it before anything uploads.
+      - name: Verify the tagged tree is a real V13/V14 module
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          # A tag whose committed version disagrees with it usually means the
+          # tag landed on the wrong commit.
+          committed=$(node -p 'require("./module.json").version')
+          [ "$committed" = "$VERSION" ] || \
+            fail "module.json version ($committed) != tag ($VERSION). Tagged the wrong commit, or forgot to bump."
+
+          # Every file the manifest promises Foundry must exist.
+          node -e '
+            const fs = require("fs");
+            const m = JSON.parse(fs.readFileSync("module.json", "utf8"));
+            const styles = (m.styles ?? []).map((s) => (typeof s === "string" ? s : s.src));
+            const langs = (m.languages ?? []).map((l) => l.path);
+            const missing = [...(m.esmodules ?? []), ...styles, ...langs].filter((p) => !fs.existsSync(p));
+            if (missing.length) {
+              console.log(`::error::module.json declares files that do not exist: ${missing.join(", ")}`);
+              process.exit(1);
+            }
+          '
+
+          # The V13+ hooks must be present. Their absence is the exact signature
+          # of pre-V13 code wearing a V14 manifest.
+          for hook in renderChatInput renderPlayers; do
+            grep -q "$hook" ready-check.js || \
+              fail "ready-check.js has no \"$hook\" hook. This looks like pre-V13 code — check the tag points at merged V14 work."
+          done
+
+          # ...and the V11 hook it replaced must be gone. Written as an `if` because
+          # under `set -e` a bare `grep && fail` aborts the step when grep finds
+          # nothing — i.e. it would fail exactly the releases that are healthy.
+          # Note there is deliberately no ".chat-control-icon" check: the current
+          # code still names that class as a backward-compatible fallback selector.
+          if grep -qE '\brenderPlayerList\b' ready-check.js; then
+            fail 'ready-check.js hooks "renderPlayerList"; V13/V14 emit "renderPlayers".'
+          fi
+
+          echo "Tagged tree verified as a V13/V14 module at $VERSION."
+
+      # Write the release-specific values so the published manifest always points
+      # at this tag. Doing it here (rather than trusting the commit) keeps forks
+      # and re-tags correct.
+      - name: Insert release-specific values in manifest file
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+          URL: https://github.com/${{ github.repository }}
+          README: https://github.com/${{ github.repository }}/blob/main/README.md
+          BUGS: https://github.com/${{ github.repository }}/issues
+          MANIFEST: https://github.com/${{ github.repository }}/releases/latest/download/module.json
+          DOWNLOAD: https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/ready-check.zip
+        run: |
+          node -e '
+            const fs = require("fs");
+            const f = "module.json";
+            const m = JSON.parse(fs.readFileSync(f, "utf8"));
+            m.version = process.env.VERSION;
+            m.url = process.env.URL;
+            m.readme = process.env.README;
+            m.bugs = process.env.BUGS;
+            m.manifest = process.env.MANIFEST;
+            m.download = process.env.DOWNLOAD;
+            fs.writeFileSync(f, JSON.stringify(m, null, 4) + "\n");
+          '
+
+      # `git archive` ships tracked files only, honouring the export-ignore rules
+      # in .gitattributes, with the module files at the archive root as Foundry
+      # expects. The `:!module.json` pathspec drops the committed manifest and
+      # `--add-file` substitutes the patched one from the working tree.
+      - name: Create zip file
+        run: |
+          set -euo pipefail
+          git archive --format=zip --worktree-attributes \
+            -o ready-check.zip --add-file=module.json HEAD ':!module.json'
+
+      # Verify the artifact itself, not the tree it was built from. This is the
+      # last gate before the bytes become downloadable.
+      - name: Verify built zip
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          fail() { echo "::error::$1"; exit 1; }
+
+          unzip -l ready-check.zip
+
+          for f in module.json ready-check.js styles/ready-check.css lang/en.json sounds/notification.mp3 LICENSE; do
+            unzip -l ready-check.zip "$f" >/dev/null 2>&1 || \
+              fail "ready-check.zip is missing $f (files must sit at the archive root)."
+          done
+
+          zipped=$(unzip -p ready-check.zip module.json | node -p 'JSON.parse(require("fs").readFileSync(0,"utf8")).version')
+          [ "$zipped" = "$VERSION" ] || fail "zip module.json version ($zipped) != tag ($VERSION)."
+
+          unzip -p ready-check.zip ready-check.js | grep -q renderChatInput || \
+            fail "zip contains a ready-check.js with no renderChatInput hook."
+
+          echo "ready-check.zip verified for $VERSION."
+
+      - name: Update Release with Files
+        uses: softprops/action-gh-release@v3
+        with:
+          name: ${{ github.event.release.name }}
+          draft: false
+          prerelease: ${{ github.event.release.prerelease }}
+          make_latest: ${{ !github.event.release.prerelease }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            ./module.json
+            ./ready-check.zip
+          tag_name: ${{ github.event.release.tag_name }}
+          body: ${{ github.event.release.body }}
