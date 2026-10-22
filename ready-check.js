@@ -135,7 +135,7 @@ function injectButton(chatControls) {
     btn.removeAttribute("data-roll-mode");
     btn.removeAttribute("aria-pressed");
     // Empty data-tooltip + aria-label is the native pattern for the hover tooltip.
-    btn.setAttribute("data-tooltip", "");
+    btn.setAttribute("data-tooltip", btnTitle);
     btn.setAttribute("aria-label", btnTitle);
 
     btn.addEventListener("click", (event) => {
@@ -176,7 +176,7 @@ function createSocketHandler() {
 function isDialogShowing(title) {
     if (foundry.applications?.instances) {
         for (const app of foundry.applications.instances.values()) {
-            if (app.title === title || app.options?.window?.title === title) return true;
+            if (app.rendered && (app.title === title || app.options?.window?.title === title)) return true;
         }
     }
     return (
@@ -216,8 +216,8 @@ function displayGmDialog() {
         new DialogV2({
             window: { title: title },
             content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
-            classes: ["dialog", "ready-check-stacked-dialog"],
-            position: { width: 300, height: "auto" },
+            classes: ["dialog", "ready-check-dialog", "ready-check-stacked-dialog"],
+            position: { width: 360, height: "auto" },
             buttons: [
                 {
                     action: "check",
@@ -247,8 +247,8 @@ function displayGmDialog() {
             buttons: buttons,
             default: "check",
         }, {
-            width: 300,
-            classes: ["dialog", "ready-check-stacked-dialog"],
+            width: 360,
+            classes: ["dialog", "ready-check-dialog", "ready-check-stacked-dialog"],
         }).render(true);
     }
 }
@@ -300,8 +300,8 @@ function displayStatusUpdateDialog() {
         new DialogV2({
             window: { title: title },
             content: `<p>${game.i18n.localize("READYCHECK.DialogContentStatusUpdate")}</p>`,
-            classes: ["dialog"],
-            position: { width: 300, height: "auto" },
+            classes: ["dialog", "ready-check-dialog"],
+            position: { width: 360, height: "auto" },
             buttons: [
                 {
                     action: "yes",
@@ -334,6 +334,9 @@ function displayStatusUpdateDialog() {
             )}</p>`,
             buttons: buttons,
             default: "yes",
+        }, {
+            width: 360,
+            classes: ["dialog", "ready-check-dialog"],
         }).render(true);
     }
 }
@@ -363,8 +366,8 @@ function displayReadyCheckDialog() {
         new DialogV2({
             window: { title: title },
             content: `<p>${game.i18n.localize("READYCHECK.DialogContentReadyCheck")}</p>`,
-            classes: ["dialog"],
-            position: { width: 300, height: "auto" },
+            classes: ["dialog", "ready-check-dialog"],
+            position: { width: 360, height: "auto" },
             buttons: [
                 {
                     action: "yes",
@@ -387,6 +390,9 @@ function displayReadyCheckDialog() {
             )}</p>`,
             buttons: buttons,
             default: "yes",
+        }, {
+            width: 360,
+            classes: ["dialog", "ready-check-dialog"],
         }).render(true);
     }
 }
@@ -510,11 +516,13 @@ async function updatePlayersWindow() {
             $(indicator).removeClass(classToRemove);
             $(indicator).addClass(classToAdd);
             $(indicator).addClass(iconClassToAdd);
+            $(indicator).attr("title", title);
+            $(indicator).attr("data-tooltip", title);
         } else {
             $("#players")
                 .find(`[data-user-id="${userId}"]`)
                 .append(
-                    `<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}"></i>`
+                    `<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}" data-tooltip="${title}"></i>`
                 );
         }
     }

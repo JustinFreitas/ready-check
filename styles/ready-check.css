@@ -16,12 +16,28 @@
     color: red;
 }
 
-/* Stack dialog buttons vertically to prevent awkward text wrapping */
-.ready-check-stacked-dialog .dialog-buttons {
+/* Stack dialog buttons vertically to prevent awkward text wrapping (Dialog and DialogV2) */
+.ready-check-stacked-dialog .dialog-buttons,
+.ready-check-stacked-dialog .form-footer {
     flex-direction: column;
+    gap: 6px;
 }
 
-.ready-check-stacked-dialog .dialog-buttons button {
-    margin: 3px 0;
+.ready-check-stacked-dialog .dialog-buttons button,
+.ready-check-stacked-dialog .form-footer button {
+    margin: 0;
     width: 100%;
+    min-height: var(--button-size, 28px);
+    height: auto;
+    line-height: normal;
+    padding: 6px 10px;
+    white-space: normal;
+}
+
+/* Ensure buttons in any ready-check dialog can gracefully size without clipping */
+.ready-check-dialog .dialog-buttons button,
+.ready-check-dialog .form-footer button {
+    min-height: var(--button-size, 28px);
+    height: auto;
+    line-height: normal;
 }

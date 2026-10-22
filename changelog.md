@@ -1,3 +1,14 @@
+# Version 14.0.4
+- Fixed button overflow in the "Ready Check GM Options" dialog by extending .ready-check-stacked-dialog CSS to support DialogV2's .form-footer container alongside legacy .dialog-buttons.
+- Added flexible button sizing (height: auto, min-height: var(--button-size, 28px), line-height: normal, padding: 6px 10px) to ensure buttons never clip or overflow across diverse game systems and UI themes.
+- Standardized dialog window dimensions (width: 360, height: auto) while preserving system-agnostic default Foundry window styling.
+- Fixed stale tooltip bug on player readiness indicators in the player list when toggling ready status.
+- Added explicit hover tooltip to the chat control ready-check button for reliable TooltipManager display across all Foundry versions.
+- Corrected localization typo in English strings.
+
+# Version 14.0.3
+- Modernized GM options and player response dialogs to use Foundry V14's DialogV2 API with fallback to legacy Dialog on older versions.
+- Hardened isDialogShowing against stale or closing application instances.
 # Version 14.0.2
 - Packaging fix. The 14.0.1 release was tagged from `main`, which at the time still held the original 1.2.4 code — so the published zip shipped a V11-era `ready-check.js` behind a V14 manifest. The result was a silently missing chat-controls button (the old code targets `.chat-control-icon`, which no longer exists in V13/V14) and missing player-list ready indicators (it hooks `renderPlayerList` rather than `renderPlayers`).
 - The V13/V14 work from the `v14` branch is now merged into `main`, which is the single release branch going forward. No functional changes over what 14.0.1 was meant to contain.
