@@ -174,9 +174,14 @@ function createSocketHandler() {
  * @returns true if there is a dialog with a matching title, otherwise false.
  */
 function isDialogShowing(title) {
+    if (foundry.applications?.instances) {
+        for (const app of foundry.applications.instances.values()) {
+            if (app.title === title || app.options?.window?.title === title) return true;
+        }
+    }
     return (
         $(".window-title").filter(function () {
-            return $(this).text() === title;
+            return $(this).text().trim() === title;
         }).length > 0
     );
 }
@@ -206,15 +211,46 @@ function displayGmDialog() {
         },
     };
 
-    new Dialog({
-        title: title,
-        content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
-        buttons: buttons,
-        default: "check",
-    }, {
-        width: 300,
-        classes: ["dialog", "ready-check-stacked-dialog"]
-    }).render(true);
+    const DialogV2 = foundry.applications?.api?.DialogV2;
+    if (DialogV2) {
+        new DialogV2({
+            window: { title: title },
+            content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
+            classes: ["dialog", "ready-check-stacked-dialog"],
+            position: { width: 300, height: "auto" },
+            buttons: [
+                {
+                    action: "check",
+                    icon: "fas fa-check",
+                    label: game.i18n.localize("READYCHECK.GmDialogButtonCheck"),
+                    default: true,
+                    callback: () => initReadyCheck(),
+                },
+                {
+                    action: "status",
+                    icon: "fas fa-hourglass-half",
+                    label: game.i18n.localize("READYCHECK.GmDialogButtonStatus"),
+                    callback: () => displayStatusUpdateDialog(),
+                },
+                {
+                    action: "clear",
+                    icon: "fas fa-broom",
+                    label: game.i18n.localize("READYCHECK.GmDialogButtonClear"),
+                    callback: () => setAllToNotReady(),
+                },
+            ],
+        }).render(true);
+    } else {
+        new Dialog({
+            title: title,
+            content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
+            buttons: buttons,
+            default: "check",
+        }, {
+            width: 300,
+            classes: ["dialog", "ready-check-stacked-dialog"],
+        }).render(true);
+    }
 }
 
 // INITIATE A READY CHECK (GM)
@@ -259,14 +295,47 @@ function displayStatusUpdateDialog() {
         },
     };
 
-    new Dialog({
-        title: title,
-        content: `<p>${game.i18n.localize(
-            "READYCHECK.DialogContentStatusUpdate"
-        )}</p>`,
-        buttons: buttons,
-        default: "yes",
-    }).render(true);
+    const DialogV2 = foundry.applications?.api?.DialogV2;
+    if (DialogV2) {
+        new DialogV2({
+            window: { title: title },
+            content: `<p>${game.i18n.localize("READYCHECK.DialogContentStatusUpdate")}</p>`,
+            classes: ["dialog"],
+            position: { width: 300, height: "auto" },
+            buttons: [
+                {
+                    action: "yes",
+                    icon: "fas fa-check",
+                    label: game.i18n.localize("READYCHECK.StatusReady"),
+                    default: true,
+                    callback: () => {
+                        data.ready = true;
+                        updateReadyStatus(data);
+                        displayStatusUpdateChatMessage(data);
+                    },
+                },
+                {
+                    action: "no",
+                    icon: "fas fa-times",
+                    label: game.i18n.localize("READYCHECK.StatusNotReady"),
+                    callback: () => {
+                        data.ready = false;
+                        updateReadyStatus(data);
+                        displayStatusUpdateChatMessage(data);
+                    },
+                },
+            ],
+        }).render(true);
+    } else {
+        new Dialog({
+            title: title,
+            content: `<p>${game.i18n.localize(
+                "READYCHECK.DialogContentStatusUpdate"
+            )}</p>`,
+            buttons: buttons,
+            default: "yes",
+        }).render(true);
+    }
 }
 
 // DISPLAY READY CHECK DIALOG AND SEND RESPONSE TO GM (PLAYER)
@@ -289,14 +358,37 @@ function displayReadyCheckDialog() {
         },
     };
 
-    new Dialog({
-        title: title,
-        content: `<p>${game.i18n.localize(
-            "READYCHECK.DialogContentReadyCheck"
-        )}</p>`,
-        buttons: buttons,
-        default: "yes",
-    }).render(true);
+    const DialogV2 = foundry.applications?.api?.DialogV2;
+    if (DialogV2) {
+        new DialogV2({
+            window: { title: title },
+            content: `<p>${game.i18n.localize("READYCHECK.DialogContentReadyCheck")}</p>`,
+            classes: ["dialog"],
+            position: { width: 300, height: "auto" },
+            buttons: [
+                {
+                    action: "yes",
+                    icon: "fas fa-check",
+                    label: game.i18n.localize("READYCHECK.StatusReady"),
+                    default: true,
+                    callback: async () => {
+                        data.ready = true;
+                        await updateReadyStatus(data);
+                        displayReadyCheckChatMessage(data);
+                    },
+                },
+            ],
+        }).render(true);
+    } else {
+        new Dialog({
+            title: title,
+            content: `<p>${game.i18n.localize(
+                "READYCHECK.DialogContentReadyCheck"
+            )}</p>`,
+            buttons: buttons,
+            default: "yes",
+        }).render(true);
+    }
 }
 
 // UPDATE USER READY STATUS
