@@ -18,6 +18,14 @@ jobs:
         with:
           ref: ${{ github.event.release.tag_name }}
 
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - name: Run unit tests
+        run: npm test
+
       # Tags are "v14.0.2"; the manifest version is "14.0.2".
       - name: Derive version from tag
         id: version

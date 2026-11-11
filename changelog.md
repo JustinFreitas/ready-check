@@ -1,3 +1,10 @@
+# Version 14.0.5
+- Eliminated async re-entrancy race in `updatePlayersWindow` by reading user flags synchronously and scoping DOM queries to the `renderPlayers` HTML element (with deduplication guard), preventing duplicate readiness icons when `renderPlayers` and socket broadcasts overlap.
+- Removed redundant native `title` attribute on player readiness indicators so Foundry V14 `TooltipManager` (`data-tooltip` + `aria-label`) renders cleanly without simultaneous browser native tooltips.
+- Batched user flag resets in `setAllToNotReady` via `User.updateDocuments` (single DB round-trip instead of $N$ sequential writes) and refreshed the GM's own player list immediately.
+- Updated `DialogV2` and `ui.players` `.render()` calls to Foundry V14 `{ force: true }` options, added conditional `"ose"` dialog class when running under OSE, replaced jQuery `.window-title` fallback in `isDialogShowing` with native DOM / `foundry.applications.instances`, and escaped `user.name` in chat messages.
+- Added automated unit test suite (`npm test`).
+
 # Version 14.0.4
 - Fixed button overflow in the "Ready Check GM Options" dialog by extending .ready-check-stacked-dialog CSS to support DialogV2's .form-footer container alongside legacy .dialog-buttons.
 - Added flexible button sizing (height: auto, min-height: var(--button-size, 28px), line-height: normal, padding: 6px 10px) to ensure buttons never clip or overflow across diverse game systems and UI themes.

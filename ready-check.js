@@ -1,75 +1,99 @@
+function escapeHtml(value) {
+    if (globalThis.foundry?.utils?.escapeHTML) {
+        return globalThis.foundry.utils.escapeHTML(String(value ?? ""));
+    }
+    return String(value ?? "").replace(/[&<>"']/g, (ch) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+    }[ch]));
+}
+
+function getDialogClasses(...extra) {
+    const classes = [];
+    if (typeof game !== "undefined" && game.system?.id === "ose") {
+        classes.push("ose");
+    }
+    classes.push("dialog", "ready-check-dialog", ...extra);
+    return classes;
+}
+
 // Register Game Settings
-Hooks.once("init", function () {
-    game.settings.register("ready-check", "showChatMessagesForUserUpdates", {
-        name: game.i18n.localize(
-            "READYCHECK.SettingsChatMessagesForUserUpdatesTitle"
-        ),
-        hint: game.i18n.localize(
-            "READYCHECK.SettingsChatMessagesForUserUpdatesHint"
-        ),
-        scope: "world",
-        config: true,
-        default: true,
-        type: Boolean,
+if (typeof Hooks !== "undefined") {
+    Hooks.once("init", function () {
+        game.settings.register("ready-check", "showChatMessagesForUserUpdates", {
+            name: game.i18n.localize(
+                "READYCHECK.SettingsChatMessagesForUserUpdatesTitle"
+            ),
+            hint: game.i18n.localize(
+                "READYCHECK.SettingsChatMessagesForUserUpdatesHint"
+            ),
+            scope: "world",
+            config: true,
+            default: true,
+            type: Boolean,
+        });
+
+        game.settings.register("ready-check", "showChatMessagesForChecks", {
+            name: game.i18n.localize(
+                "READYCHECK.SettingsChatMessagesForChecksTitle"
+            ),
+            hint: game.i18n.localize(
+                "READYCHECK.SettingsChatMessagesForChecksHint"
+            ),
+            scope: "world",
+            config: true,
+            default: false,
+            type: Boolean,
+        });
+
+        game.settings.register("ready-check", "playAlertForCheck", {
+            name: game.i18n.localize("READYCHECK.SettingsPlayAlertForChecksTitle"),
+            hint: game.i18n.localize("READYCHECK.SettingsPlayAlertForChecksHint"),
+            scope: "world",
+            config: true,
+            default: false,
+            type: Boolean,
+        });
+
+        game.settings.register("ready-check", "checkAlertSoundPath", {
+            name: game.i18n.localize("READYCHECK.SettingsCheckAlertSoundPathTitle"),
+            hint: game.i18n.localize("READYCHECK.SettingsCheckAlertSoundPathHint"),
+            scope: "world",
+            config: true,
+            default: "modules/ready-check/sounds/notification.mp3",
+            type: String,
+        });
+
+        // Register the socket handler exactly once. Registering it from a render hook
+        // would add a new listener on every chat re-render (popout/collapse), causing
+        // a single socket message to be processed multiple times.
+        createSocketHandler();
     });
 
-    game.settings.register("ready-check", "showChatMessagesForChecks", {
-        name: game.i18n.localize(
-            "READYCHECK.SettingsChatMessagesForChecksTitle"
-        ),
-        hint: game.i18n.localize(
-            "READYCHECK.SettingsChatMessagesForChecksHint"
-        ),
-        scope: "world",
-        config: true,
-        default: false,
-        type: Boolean,
+    // V14+: `renderChatInput` is the dedicated hook that hands us the `#chat-controls`
+    // element directly, and it re-fires whenever the controls are re-parented (sidebar
+    // popout/collapse), so our button is re-injected instead of being lost.
+    Hooks.on("renderChatInput", function (app, elements) {
+        const chatControls = elements?.["#chat-controls"] ?? document.querySelector("#chat-controls");
+        if (chatControls) injectButton(chatControls);
     });
 
-    game.settings.register("ready-check", "playAlertForCheck", {
-        name: game.i18n.localize("READYCHECK.SettingsPlayAlertForChecksTitle"),
-        hint: game.i18n.localize("READYCHECK.SettingsPlayAlertForChecksHint"),
-        scope: "world",
-        config: true,
-        default: false,
-        type: Boolean,
+    // V13 fallback: the chat controls there live inside the chat log render, and
+    // `renderChatInput` is not emitted. `html` may be a jQuery object or HTMLElement.
+    Hooks.on("renderChatLog", function (app, html) {
+        const root = html?.[0] ?? html ?? document;
+        const chatControls = root.querySelector?.("#chat-controls") ?? document.querySelector("#chat-controls");
+        if (chatControls) injectButton(chatControls);
     });
 
-    game.settings.register("ready-check", "checkAlertSoundPath", {
-        name: game.i18n.localize("READYCHECK.SettingsCheckAlertSoundPathTitle"),
-        hint: game.i18n.localize("READYCHECK.SettingsCheckAlertSoundPathHint"),
-        scope: "world",
-        config: true,
-        default: "modules/ready-check/sounds/notification.mp3",
-        type: String,
+    // Update the display of the Player UI.
+    Hooks.on("renderPlayers", function (app, html) {
+        updatePlayersWindow(html);
     });
-
-    // Register the socket handler exactly once. Registering it from a render hook
-    // would add a new listener on every chat re-render (popout/collapse), causing
-    // a single socket message to be processed multiple times.
-    createSocketHandler();
-});
-
-// V14+: `renderChatInput` is the dedicated hook that hands us the `#chat-controls`
-// element directly, and it re-fires whenever the controls are re-parented (sidebar
-// popout/collapse), so our button is re-injected instead of being lost.
-Hooks.on("renderChatInput", function (app, elements) {
-    const chatControls = elements?.["#chat-controls"] ?? document.querySelector("#chat-controls");
-    if (chatControls) injectButton(chatControls);
-});
-
-// V13 fallback: the chat controls there live inside the chat log render, and
-// `renderChatInput` is not emitted. `html` may be a jQuery object or HTMLElement.
-Hooks.on("renderChatLog", function (app, html) {
-    const root = html?.[0] ?? html ?? document;
-    const chatControls = root.querySelector?.("#chat-controls") ?? document.querySelector("#chat-controls");
-    if (chatControls) injectButton(chatControls);
-});
-
-// Update the display of the Player UI.
-Hooks.on("renderPlayers", async function () {
-    await updatePlayersWindow();
-});
+}
 
 /**
  * This sends a message to all connected clients that they should update their PlayerList.
@@ -84,17 +108,31 @@ function sendPlayerRenderSocketMessage() {
 
 // SET ALL USERS STATUS TO NOT READY (GM)
 async function setAllToNotReady() {
-    if (game.user.isGM) {
-        for (let i = 0; i < game.users.contents.length; i++) {
-            await game.users.contents[i].setFlag(
-                "ready-check",
-                "isReady",
-                false
+    if (!game.user.isGM) return;
+
+    const users = game.users?.contents ?? [];
+    if (users.length > 0) {
+        const UserClass = globalThis.User ?? foundry?.documents?.User;
+        if (typeof UserClass?.updateDocuments === "function") {
+            await UserClass.updateDocuments(
+                users.map((u) => ({
+                    _id: u.id,
+                    "flags.ready-check.isReady": false,
+                }))
+            );
+        } else {
+            await Promise.all(
+                users.map((u) => u.setFlag("ready-check", "isReady", false))
             );
         }
-
-        sendPlayerRenderSocketMessage();
     }
+
+    if (ui?.players?.render) {
+        ui.players.render({ force: true });
+    } else {
+        updatePlayersWindow();
+    }
+    sendPlayerRenderSocketMessage();
 }
 
 // CREATE THE UI BUTTON FOR THE GM AND PLAYERS
@@ -134,7 +172,6 @@ function injectButton(chatControls) {
     btn.classList.add("fa-solid", "fa-hourglass-half");
     btn.removeAttribute("data-roll-mode");
     btn.removeAttribute("aria-pressed");
-    // Empty data-tooltip + aria-label is the native pattern for the hover tooltip.
     btn.setAttribute("data-tooltip", btnTitle);
     btn.setAttribute("aria-label", btnTitle);
 
@@ -158,12 +195,12 @@ function createSocketHandler() {
         if (data.action === "check") {
             displayReadyCheckDialog();
         } else if (data.action === "update") {
-            processReadyResponse(data);
+            await processReadyResponse(data);
         } else if (
             data.action === "player-render" &&
             game.user.id !== data.userId
         ) {
-            await updatePlayersWindow();
+            updatePlayersWindow();
         }
     });
 }
@@ -174,16 +211,24 @@ function createSocketHandler() {
  * @returns true if there is a dialog with a matching title, otherwise false.
  */
 function isDialogShowing(title) {
-    if (foundry.applications?.instances) {
+    if (globalThis.foundry?.applications?.instances) {
         for (const app of foundry.applications.instances.values()) {
-            if (app.rendered && (app.title === title || app.options?.window?.title === title)) return true;
+            if (app.rendered && (app.title === title || app.options?.window?.title === title)) {
+                return true;
+            }
         }
     }
-    return (
-        $(".window-title").filter(function () {
-            return $(this).text().trim() === title;
-        }).length > 0
-    );
+    if (globalThis.ui?.windows) {
+        for (const app of Object.values(ui.windows)) {
+            if (app?.rendered && app.title === title) return true;
+        }
+    }
+    if (typeof document !== "undefined") {
+        for (const el of document.querySelectorAll(".window-title")) {
+            if (el.textContent?.trim() === title) return true;
+        }
+    }
+    return false;
 }
 
 // DISPLAY DIALOG ASKING GM WHAT THEY WANT TO DO
@@ -193,30 +238,13 @@ function displayGmDialog() {
         return;
     }
 
-    const buttons = {
-        check: {
-            icon: "<i class='fas fa-check'></i>",
-            label: game.i18n.localize("READYCHECK.GmDialogButtonCheck"),
-            callback: initReadyCheck,
-        },
-        status: {
-            icon: "<i class='fas fa-hourglass-half'></i>",
-            label: game.i18n.localize("READYCHECK.GmDialogButtonStatus"),
-            callback: displayStatusUpdateDialog,
-        },
-        clear: {
-            icon: "<i class='fas fa-broom'></i>",
-            label: game.i18n.localize("READYCHECK.GmDialogButtonClear"),
-            callback: setAllToNotReady,
-        },
-    };
-
-    const DialogV2 = foundry.applications?.api?.DialogV2;
+    const classes = getDialogClasses("ready-check-stacked-dialog");
+    const DialogV2 = globalThis.foundry?.applications?.api?.DialogV2;
     if (DialogV2) {
         new DialogV2({
             window: { title: title },
             content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
-            classes: ["dialog", "ready-check-dialog", "ready-check-stacked-dialog"],
+            classes,
             position: { width: 360, height: "auto" },
             buttons: [
                 {
@@ -239,8 +267,25 @@ function displayGmDialog() {
                     callback: () => setAllToNotReady(),
                 },
             ],
-        }).render(true);
+        }).render({ force: true });
     } else {
+        const buttons = {
+            check: {
+                icon: "<i class='fas fa-check'></i>",
+                label: game.i18n.localize("READYCHECK.GmDialogButtonCheck"),
+                callback: initReadyCheck,
+            },
+            status: {
+                icon: "<i class='fas fa-hourglass-half'></i>",
+                label: game.i18n.localize("READYCHECK.GmDialogButtonStatus"),
+                callback: displayStatusUpdateDialog,
+            },
+            clear: {
+                icon: "<i class='fas fa-broom'></i>",
+                label: game.i18n.localize("READYCHECK.GmDialogButtonClear"),
+                callback: setAllToNotReady,
+            },
+        };
         new Dialog({
             title: title,
             content: `<p>${game.i18n.localize("READYCHECK.GmDialogContent")}</p>`,
@@ -248,7 +293,7 @@ function displayGmDialog() {
             default: "check",
         }, {
             width: 360,
-            classes: ["dialog", "ready-check-dialog", "ready-check-stacked-dialog"],
+            classes,
         }).render(true);
     }
 }
@@ -256,7 +301,7 @@ function displayGmDialog() {
 // INITIATE A READY CHECK (GM)
 async function initReadyCheck() {
     if (game.user.isGM) {
-        let data = { action: "check" };
+        const data = { action: "check" };
         await setAllToNotReady();
         game.socket.emit("module.ready-check", data);
         displayReadyCheckDialog();
@@ -274,33 +319,13 @@ function displayStatusUpdateDialog() {
     }
 
     const data = { action: "update", ready: false, userId: game.user.id };
-    const buttons = {
-        yes: {
-            icon: "<i class='fas fa-check'></i>",
-            label: game.i18n.localize("READYCHECK.StatusReady"),
-            callback: () => {
-                data.ready = true;
-                updateReadyStatus(data);
-                displayStatusUpdateChatMessage(data);
-            },
-        },
-        no: {
-            icon: "<i class='fas fa-times'></i>",
-            label: game.i18n.localize("READYCHECK.StatusNotReady"),
-            callback: () => {
-                data.ready = false;
-                updateReadyStatus(data);
-                displayStatusUpdateChatMessage(data);
-            },
-        },
-    };
-
-    const DialogV2 = foundry.applications?.api?.DialogV2;
+    const classes = getDialogClasses();
+    const DialogV2 = globalThis.foundry?.applications?.api?.DialogV2;
     if (DialogV2) {
         new DialogV2({
             window: { title: title },
             content: `<p>${game.i18n.localize("READYCHECK.DialogContentStatusUpdate")}</p>`,
-            classes: ["dialog", "ready-check-dialog"],
+            classes,
             position: { width: 360, height: "auto" },
             buttons: [
                 {
@@ -325,8 +350,28 @@ function displayStatusUpdateDialog() {
                     },
                 },
             ],
-        }).render(true);
+        }).render({ force: true });
     } else {
+        const buttons = {
+            yes: {
+                icon: "<i class='fas fa-check'></i>",
+                label: game.i18n.localize("READYCHECK.StatusReady"),
+                callback: () => {
+                    data.ready = true;
+                    updateReadyStatus(data);
+                    displayStatusUpdateChatMessage(data);
+                },
+            },
+            no: {
+                icon: "<i class='fas fa-times'></i>",
+                label: game.i18n.localize("READYCHECK.StatusNotReady"),
+                callback: () => {
+                    data.ready = false;
+                    updateReadyStatus(data);
+                    displayStatusUpdateChatMessage(data);
+                },
+            },
+        };
         new Dialog({
             title: title,
             content: `<p>${game.i18n.localize(
@@ -336,7 +381,7 @@ function displayStatusUpdateDialog() {
             default: "yes",
         }, {
             width: 360,
-            classes: ["dialog", "ready-check-dialog"],
+            classes,
         }).render(true);
     }
 }
@@ -349,24 +394,13 @@ function displayReadyCheckDialog() {
     }
 
     const data = { action: "update", ready: false, userId: game.user.id };
-    const buttons = {
-        yes: {
-            icon: "<i class='fas fa-check'></i>",
-            label: game.i18n.localize("READYCHECK.StatusReady"),
-            callback: async () => {
-                data.ready = true;
-                await updateReadyStatus(data);
-                displayReadyCheckChatMessage(data);
-            },
-        },
-    };
-
-    const DialogV2 = foundry.applications?.api?.DialogV2;
+    const classes = getDialogClasses();
+    const DialogV2 = globalThis.foundry?.applications?.api?.DialogV2;
     if (DialogV2) {
         new DialogV2({
             window: { title: title },
             content: `<p>${game.i18n.localize("READYCHECK.DialogContentReadyCheck")}</p>`,
-            classes: ["dialog", "ready-check-dialog"],
+            classes,
             position: { width: 360, height: "auto" },
             buttons: [
                 {
@@ -381,8 +415,19 @@ function displayReadyCheckDialog() {
                     },
                 },
             ],
-        }).render(true);
+        }).render({ force: true });
     } else {
+        const buttons = {
+            yes: {
+                icon: "<i class='fas fa-check'></i>",
+                label: game.i18n.localize("READYCHECK.StatusReady"),
+                callback: async () => {
+                    data.ready = true;
+                    await updateReadyStatus(data);
+                    displayReadyCheckChatMessage(data);
+                },
+            },
+        };
         new Dialog({
             title: title,
             content: `<p>${game.i18n.localize(
@@ -392,17 +437,17 @@ function displayReadyCheckDialog() {
             default: "yes",
         }, {
             width: 360,
-            classes: ["dialog", "ready-check-dialog"],
+            classes,
         }).render(true);
     }
 }
 
 // UPDATE USER READY STATUS
-//  If the user is a GM, just update it since the socket go to the sender, and none of the recipients (players)
-//  will have the permissions require to update user flags. If the user is not a GM, emit that socket.
+//  If the user is a GM, just update it since the socket doesn't echo to the sender, and none of the recipients (players)
+//  will have the permissions required to update user flags. If the user is not a GM, emit that socket.
 async function updateReadyStatus(data) {
     if (game.user.isGM) {
-        processReadyResponse(data);
+        await processReadyResponse(data);
     } else {
         game.socket.emit("module.ready-check", data);
     }
@@ -416,7 +461,7 @@ async function processReadyResponse(data) {
         const userToUpdate = game.users.get(data.userId);
         if (!userToUpdate) return;
         await userToUpdate.setFlag("ready-check", "isReady", data.ready);
-        ui.players.render(true);
+        ui.players?.render({ force: true });
         sendPlayerRenderSocketMessage();
     }
 }
@@ -426,7 +471,7 @@ function displayReadyCheckChatMessage(data) {
     if (game.settings.get("ready-check", "showChatMessagesForChecks")) {
         const user = game.users.get(data.userId);
         if (!user) return;
-        const username = user.name;
+        const username = escapeHtml(user.name);
         const content = `${username} ${game.i18n.localize(
             "READYCHECK.ChatTextCheck"
         )}`;
@@ -442,7 +487,7 @@ function displayStatusUpdateChatMessage(data) {
     if (game.settings.get("ready-check", "showChatMessagesForUserUpdates")) {
         const user = game.users.get(data.userId);
         if (!user) return;
-        const username = user.name;
+        const username = escapeHtml(user.name);
         const status = data.ready
             ? game.i18n.localize("READYCHECK.StatusReady")
             : game.i18n.localize("READYCHECK.StatusNotReady");
@@ -460,8 +505,8 @@ function displayStatusUpdateChatMessage(data) {
 function playReadyCheckAlert() {
     const playAlert = game.settings.get("ready-check", "playAlertForCheck");
     const alertSound = game.settings.get("ready-check", "checkAlertSoundPath");
-    const audioHelper = foundry?.audio?.AudioHelper ?? AudioHelper;
-    
+    const audioHelper = globalThis.foundry?.audio?.AudioHelper ?? globalThis.AudioHelper;
+
     if (playAlert && !alertSound) {
         audioHelper.play(
             {
@@ -480,50 +525,70 @@ function playReadyCheckAlert() {
     }
 }
 
-// UPDATE PLAYER UI
-async function updatePlayersWindow() {
-    // This makes the icon aligned with the icon in the players-active container. For v13.
-    // Hoisted out of the per-user loop since it's a single global DOM effect.
-    $("#players-inactive").removeClass("scrollable");
+// UPDATE PLAYER UI (synchronous to prevent concurrent DOM interleaving/duplicates)
+function updatePlayersWindow(html) {
+    const passedRoot = html?.[0] ?? html ?? null;
+    const playersRoot =
+        (passedRoot?.id === "players" ? passedRoot : passedRoot?.querySelector?.("#players")) ??
+        passedRoot ??
+        (typeof document !== "undefined" ? document.getElementById("players") : null);
+    if (!playersRoot) return;
 
-    for (let i = 0; i < game.users.contents.length; i++) {
-        const ready = await game.users.contents[i].getFlag(
-            "ready-check",
-            "isReady"
-        );
-        const userId = game.users.contents[i].id;
-        const indicator = $("#players").find(
-            `[data-user-id="${userId}"] .crash-ready-indicator`
-        );
-        let title, classToAdd, classToRemove, iconClassToAdd, iconClassToRemove;
+    // Keep icon aligned with the icon in the players-active container (V13 compatibility).
+    const inactive =
+        playersRoot.querySelector?.("#players-inactive") ??
+        (typeof document !== "undefined" ? document.getElementById("players-inactive") : null);
+    inactive?.classList?.remove("scrollable");
 
-        if (ready) {
-            title = game.i18n.localize("READYCHECK.PlayerReady");
-            classToAdd = "ready";
-            classToRemove = "not-ready";
-            iconClassToAdd = "fa-check";
-            iconClassToRemove = "fa-times";
+    const users = game.users?.contents ?? [];
+    for (let i = 0; i < users.length; i++) {
+        const user = users[i];
+        const ready = Boolean(user.getFlag("ready-check", "isReady"));
+        const userId = user.id;
+        const playerRow = playersRoot.querySelector?.(`[data-user-id="${userId}"]`);
+        if (!playerRow) continue;
+
+        const title = ready
+            ? game.i18n.localize("READYCHECK.PlayerReady")
+            : game.i18n.localize("READYCHECK.PlayerNotReady");
+        const classToAdd = ready ? "ready" : "not-ready";
+        const classToRemove = ready ? "not-ready" : "ready";
+        const iconClassToAdd = ready ? "fa-check" : "fa-times";
+        const iconClassToRemove = ready ? "fa-times" : "fa-check";
+
+        const indicators = playerRow.querySelectorAll(".crash-ready-indicator");
+        if (indicators.length > 0) {
+            // Clean up any stale duplicates if present, keeping the first element.
+            for (let j = 1; j < indicators.length; j++) {
+                indicators[j].remove();
+            }
+            const indicator = indicators[0];
+            indicator.classList.remove(iconClassToRemove, classToRemove);
+            indicator.classList.add(classToAdd, iconClassToAdd);
+            indicator.removeAttribute("title");
+            indicator.setAttribute("data-tooltip", title);
+            indicator.setAttribute("aria-label", title);
         } else {
-            title = game.i18n.localize("READYCHECK.PlayerNotReady");
-            classToAdd = "not-ready";
-            classToRemove = "ready";
-            iconClassToAdd = "fa-times";
-            iconClassToRemove = "fa-check";
-        }
-
-        if (indicator && indicator.length > 0) {
-            $(indicator).removeClass(iconClassToRemove);
-            $(indicator).removeClass(classToRemove);
-            $(indicator).addClass(classToAdd);
-            $(indicator).addClass(iconClassToAdd);
-            $(indicator).attr("title", title);
-            $(indicator).attr("data-tooltip", title);
-        } else {
-            $("#players")
-                .find(`[data-user-id="${userId}"]`)
-                .append(
-                    `<i class="fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}" title="${title}" data-tooltip="${title}"></i>`
-                );
+            const icon = playerRow.ownerDocument.createElement("i");
+            icon.className = `fas ${iconClassToAdd} crash-ready-indicator ${classToAdd}`;
+            icon.setAttribute("data-tooltip", title);
+            icon.setAttribute("aria-label", title);
+            playerRow.appendChild(icon);
         }
     }
 }
+
+export {
+    escapeHtml,
+    getDialogClasses,
+    setAllToNotReady,
+    injectButton,
+    isDialogShowing,
+    displayGmDialog,
+    displayStatusUpdateDialog,
+    displayReadyCheckDialog,
+    processReadyResponse,
+    displayReadyCheckChatMessage,
+    displayStatusUpdateChatMessage,
+    updatePlayersWindow,
+};

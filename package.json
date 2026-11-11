@@ -1,0 +1,9 @@
+{
+  "name": "ready-check",
+  "private": true,
+  "description": "Dev test tooling for Ready Check Foundry VTT module (excluded from release zip).",
+  "type": "module",
+  "scripts": {
+    "test": "node --test"
+  }
+}
